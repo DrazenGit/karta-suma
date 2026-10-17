@@ -26,6 +26,12 @@
   .hint { color: #a33; font-weight: 600; }
   .leg span { white-space: nowrap; }
   a { color: #003296; }
+  .mapbtns { display: flex; flex-direction: column; gap: 8px; }
+  .mapbtns button { width: 48px; height: 48px; padding: 0; font-size: 22px; line-height: 1;
+    background: #fff; color: #000; border: 2px solid rgba(0,0,0,.3); border-radius: 10px;
+    box-shadow: 0 1px 6px rgba(0,0,0,.25); }
+  .mapbtns button.on { background: #0046c8; border-color: #003296; }
+  .leaflet-bottom.leaflet-right { margin-bottom: env(safe-area-inset-bottom); margin-right: env(safe-area-inset-right); }
   /* Mobitel: panel preko cijele širine na vrhu, detalji sklopivi */
   @media (max-width: 600px) {
     .panel { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
@@ -39,7 +45,6 @@
 <div class="panel">
   <div class="row">
     <select id="sp" aria-label="Vrsta drveća"></select>
-    <button id="loc" aria-label="Moja lokacija">📍</button>
     <button id="more" aria-expanded="false">Info</button>
   </div>
   <p class="leg" id="leg"></p>
@@ -177,9 +182,45 @@ $('more').onclick = () => {
   const d = $('details'); d.hidden = !d.hidden;
   $('more').setAttribute('aria-expanded', String(!d.hidden));
 };
-$('loc').onclick = () => map.locate({ setView: true, maxZoom: 14 });
-map.on('locationfound', e => L.circleMarker(e.latlng, { radius: 8, color: '#000', fillColor: '#fff', fillOpacity: 1, weight: 3 }).addTo(map));
-map.on('locationerror', () => $('hint').textContent = 'Ne mogu dobiti lokaciju (dozvoli lokaciju u browseru).');
+// --- Tipke dolje desno: na mene, prati me, cijela Hrvatska ---
+const HR = [[42.35, 13.4], [46.6, 19.5]];
+const Btns = L.Control.extend({
+  options: { position: 'bottomright' },
+  onAdd() {
+    const d = L.DomUtil.create('div', 'mapbtns');
+    d.innerHTML = '<button id="bMe" title="Na mene" aria-label="Centriraj na moju lokaciju">📍</button>' +
+      '<button id="bFollow" title="Prati me" aria-label="Prati moju lokaciju" aria-pressed="false">🧭</button>' +
+      '<button id="bHr" title="Cijela Hrvatska" aria-label="Prikaži cijelu Hrvatsku">🇭🇷</button>';
+    L.DomEvent.disableClickPropagation(d);
+    return d;
+  }
+});
+new Btns().addTo(map);
+
+let me = null, acc = null, follow = false, centerOnce = false;
+map.locate({ watch: true, enableHighAccuracy: true, setView: false });
+map.on('locationfound', e => {
+  if (!me) {
+    acc = L.circle(e.latlng, { radius: e.accuracy, color: '#000', weight: 1, fillOpacity: 0.08, interactive: false }).addTo(map);
+    me = L.circleMarker(e.latlng, { radius: 9, color: '#000', fillColor: '#fff', fillOpacity: 1, weight: 4 }).addTo(map);
+  } else { me.setLatLng(e.latlng); acc.setLatLng(e.latlng).setRadius(e.accuracy); }
+  if (centerOnce) { centerOnce = false; map.setView(e.latlng, Math.max(map.getZoom(), 14)); }
+  else if (follow) map.panTo(e.latlng);
+  $('hint').textContent = '';
+});
+map.on('locationerror', () => $('hint').textContent = 'Ne mogu dobiti lokaciju (dozvoli lokaciju u postavkama browsera).');
+
+$('bMe').onclick = () => {
+  if (me) map.setView(me.getLatLng(), Math.max(map.getZoom(), 14));
+  else { centerOnce = true; $('hint').textContent = 'Tražim lokaciju…'; }
+};
+const setFollow = on => {
+  follow = on; $('bFollow').classList.toggle('on', on); $('bFollow').setAttribute('aria-pressed', String(on));
+  if (on) $('bMe').onclick();
+};
+$('bFollow').onclick = () => setFollow(!follow);
+map.on('dragstart', () => follow && setFollow(false));  // ručno pomicanje gasi praćenje
+$('bHr').onclick = () => { setFollow(false); map.fitBounds(HR); };
 </script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
