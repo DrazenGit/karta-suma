@@ -1,5 +1,5 @@
 // App shell iz cachea (radi i bez signala); podloge i slojevi šuma: mreža, pa cache kao rezerva.
-const SHELL = 'shell-v2', TILES = 'tiles-v1';
+const SHELL = 'shell-v3', TILES = 'tiles-v1';
 const SHELL_FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'];

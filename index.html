@@ -54,6 +54,12 @@
     <p>Boja = koliko te vrste ima u gospodarskoj jedinici (drvna zaliha, m³), u odnosu na ostale jedinice. Klik na područje = točni brojevi.</p>
     <p><label><input type="checkbox" id="spOn" checked> prikaži vrstu</label></p>
     <p><a href="https://nsp-dozvola.hrsume.hr/" target="_blank">Dozvola za branje (besplatna)</a></p>
+    <div class="row" style="flex-wrap:wrap">
+      <button id="bInstall" hidden>⬇️ Instaliraj aplikaciju</button>
+      <button id="bUpdate">🔄 Ažuriraj aplikaciju</button>
+    </div>
+    <p id="iosHint" hidden style="font-size:13px">Instalacija na iPhoneu: gumb za dijeljenje (kvadrat sa strelicom) → <b>Dodaj na početni zaslon</b>.</p>
+    <p id="appMsg" style="font-size:13px"></p>
     <p style="font-size:12px;color:#555">Izvor: Hrvatske šume d.o.o., javni podaci (Obrazac O-4, šumskogospodarski planovi). Podaci za 441 od 714 gospodarskih jedinica.</p>
   </div>
 </div>
@@ -182,6 +188,32 @@ $('more').onclick = () => {
   const d = $('details'); d.hidden = !d.hidden;
   $('more').setAttribute('aria-expanded', String(!d.hidden));
 };
+// --- Instalacija i ažuriranje aplikacije (PWA) ---
+const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (!installed) $('bInstall').hidden = false; });
+addEventListener('appinstalled', () => { $('bInstall').hidden = true; $('appMsg').textContent = 'Aplikacija je instalirana.'; });
+if (!installed && /iPhone|iPad|iPod/.test(navigator.userAgent)) $('iosHint').hidden = false;
+$('bInstall').onclick = async () => {
+  if (!installEvt) return;
+  installEvt.prompt();
+  await installEvt.userChoice;
+  installEvt = null; $('bInstall').hidden = true;
+};
+// Hard refresh: obriši spremljenu aplikaciju (ne i spremljene podloge), povuci novu verziju i ponovno učitaj.
+$('bUpdate').onclick = async () => {
+  $('appMsg').textContent = 'Ažuriram…';
+  try {
+    if ('serviceWorker' in navigator) {
+      for (const r of await navigator.serviceWorker.getRegistrations()) await r.update();
+    }
+    if ('caches' in window) {
+      for (const k of await caches.keys()) if (k.startsWith('shell')) await caches.delete(k);
+    }
+  } catch (e) { /* svejedno ponovno učitaj */ }
+  location.reload();
+};
+
 // --- Tipke dolje desno: na mene, prati me, cijela Hrvatska ---
 const HR = [[42.35, 13.4], [46.6, 19.5]];
 const Btns = L.Control.extend({
